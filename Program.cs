@@ -1,4 +1,4 @@
-lab 1.1
+lab 1.2
 
 ﻿using System;
 using System.Collections.Generic;
