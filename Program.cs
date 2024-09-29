@@ -1,117 +1,155 @@
-lab 1.2
-
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.IO;
+using System.Linq;
 
-abstract class Product
+public interface ILearningFactory
 {
+    Student CreateStudent(int id, string name);
+    Teacher CreateTeacher(int id, string name, int experience);
+    Course CreateCourse(int id, string name, int teacherId, List<int> studentIds);
+}
+
+public class LearningFactory : ILearningFactory
+{
+    public Student CreateStudent(int id, string name)
+    {
+        return new Student(id, name);
+    }
+
+    public Teacher CreateTeacher(int id, string name, int experience)
+    {
+        return new Teacher(id, name, experience);
+    }
+
+    public Course CreateCourse(int id, string name, int teacherId, List<int> studentIds)
+    {
+        return new Course(id, name, teacherId, studentIds);
+    }
+}
+
+public class Student
+{
+    public int Id { get; set; }
     public string Name { get; set; }
-    public virtual double Price { get; set; }
-    public abstract string GetInformation();
+    public List<int> Courses { get; set; }
 
-    public Product(string name, double price)
+    public Student(int id, string name)
     {
+        Id = id;
         Name = name;
-        Price = price;
+        Courses = new List<int>();
+    }
+
+    public override string ToString()
+    {
+        return $"Student Id = {Id}, Name = {Name}, Courses = {string.Join(",", Courses)}";
     }
 }
 
-class Toy : Product
+public class Teacher
 {
-    public string Material { get; set; }
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public int Experience { get; set; }
+    public List<int> Courses { get; set; }
 
-    public Toy(string name, double price, string material) : base(name, price)
+    public Teacher(int id, string name, int experience)
     {
-        Material = material;
+        Id = id;
+        Name = name;
+        Experience = experience;
+        Courses = new List<int>();
     }
 
-    public override string GetInformation()
+    public override string ToString()
     {
-        return $"Toy: {Name}, Price: {Price:C}, Material: {Material}";
+        return $"Teacher Id = {Id}, Name = {Name}, Exp = {Experience}, Courses = {string.Join(",", Courses)}";
     }
 }
 
-class Meat : Product
+public class Course
 {
-    public string Type { get; set; }
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public int TeacherId { get; set; }
+    public List<int> StudentIds { get; set; }
 
-    public Meat(string name, double price, string type) : base(name, price)
+    public Course(int id, string name, int teacherId, List<int> studentIds)
     {
-        Type = type;
+        Id = id;
+        Name = name;
+        TeacherId = teacherId;
+        StudentIds = studentIds;
     }
 
-    public override string GetInformation()
+    public override string ToString()
     {
-        return $"Meat: {Name}, Price: {Price:C}, Type: {Type}";
+        return $"Course Id = {Id}, Name = {Name}, Teacher id = {TeacherId}, Students id = {string.Join(",", StudentIds)}";
     }
 }
 
-class Drinks : Product
+public class DataHandler
 {
-    public bool IsAlcoholic { get; set; }
-
-    public Drinks(string name, double price, bool isAlcoholic) : base(name, price)
+    public void SaveToFile(string filePath, List<Student> students, List<Teacher> teachers, List<Course> courses)
     {
-        IsAlcoholic = isAlcoholic;
-    }
-
-    public override string GetInformation()
-    {
-        return $"Drinks: {Name}, Price: {Price:C}, Alcoholic: {IsAlcoholic}";
-    }
-}
-
-class Clothing : Product
-{
-    public string Size { get; set; }
-
-    public Clothing(string name, double price, string size) : base(name, price)
-    {
-        Size = size;
-    }
-
-    public override string GetInformation()
-    {
-        return $"Clothing: {Name}, Price: {Price:C}, Size: {Size}";
-    }
-}
-
-class Electronics : Product
-{
-    public int WarrantyPeriod { get; set; }
-
-    public Electronics(string name, double price, int warrantyPeriod) : base(name, price)
-    {
-        WarrantyPeriod = warrantyPeriod;
-    }
-
-    public override string GetInformation()
-    {
-        return $"Electronics: {Name}, Price: {Price:C}, Warranty: {WarrantyPeriod} months";
-    }
-}
-
-class DiscountedProduct : Product
-{
-    private double _discountPercentage;
-
-    public DiscountedProduct(Product product, double discountPercentage) : base(product.Name, product.Price)
-    {
-        _discountPercentage = discountPercentage;
-    }
-
-    public override double Price
-    {
-        get
+        using (StreamWriter writer = new StreamWriter(filePath))
         {
-            return base.Price - (base.Price * _discountPercentage / 100);
+            foreach (var student in students)
+            {
+                writer.WriteLine($"student,{student.Id},{student.Name},{string.Join(";", student.Courses)}");
+            }
+
+            foreach (var teacher in teachers)
+            {
+                writer.WriteLine($"teacher,{teacher.Id},{teacher.Name},{teacher.Experience},{string.Join(";", teacher.Courses)}");
+            }
+
+            foreach (var course in courses)
+            {
+                writer.WriteLine($"course,{course.Id},{course.Name},{course.TeacherId},{string.Join(";", course.StudentIds)}");
+            }
         }
     }
 
-    public override string GetInformation()
+    public void LoadFromFile(string filePath, out List<Student> students, out List<Teacher> teachers, out List<Course> courses)
     {
-        return $"{Name}, Original Price: {base.Price:C}, Discounted Price: {Price:C}";
+        students = new List<Student>();
+        teachers = new List<Teacher>();
+        courses = new List<Course>();
+
+        string[] lines = File.ReadAllLines(filePath);
+        foreach (var line in lines)
+        {
+            string[] parts = line.Split(',');
+
+            if (parts[0] == "student")
+            {
+                int id = int.Parse(parts[1]);
+                string name = parts[2];
+                List<int> courseIds = parts[3].Split(';').Select(int.Parse).ToList();
+                var student = new Student(id, name) { Courses = courseIds };
+                students.Add(student);
+            }
+            else if (parts[0] == "teacher")
+            {
+                int id = int.Parse(parts[1]);
+                string name = parts[2];
+                int experience = int.Parse(parts[3]);
+                List<int> courseIds = parts[4].Split(';').Select(int.Parse).ToList();
+                var teacher = new Teacher(id, name, experience) { Courses = courseIds };
+                teachers.Add(teacher);
+            }
+            else if (parts[0] == "course")
+            {
+                int id = int.Parse(parts[1]);
+                string name = parts[2];
+                int teacherId = int.Parse(parts[3]);
+                List<int> studentIds = parts[4].Split(';').Select(int.Parse).ToList();
+                var course = new Course(id, name, teacherId, studentIds);
+                courses.Add(course);
+            }
+        }
     }
 }
 
@@ -119,25 +157,43 @@ class Program
 {
     static void Main(string[] args)
     {
-        double discount = 55;
-        List<Product> products = new List<Product>
-        {
-            new Toy("Lego Set", 50.0, "Plastic"),
-            new Meat("Chicken Breast", 12.0, "Chicken"),
-            new Drinks("Coca-Cola", 2.0, false),
-            new Clothing("T-Shirt", 15.0, "M"),
-            new Electronics("Smartphone", 300.0, 24)
-        };
+        ILearningFactory factory = new LearningFactory();
 
-        List<Product> discountedProducts = new List<Product>();
-        foreach (var product in products)
+        // Создание студентов, преподавателей и курсов
+        var student1 = factory.CreateStudent(1, "Alice");
+        var student2 = factory.CreateStudent(2, "Bob");
+
+        var teacher1 = factory.CreateTeacher(1, "Dr. Smith", 10);
+
+        var course1 = factory.CreateCourse(1, "Math", teacher1.Id, new List<int> { student1.Id, student2.Id });
+
+        // Связывание объектов
+        student1.Courses.Add(course1.Id);
+        student2.Courses.Add(course1.Id);
+        teacher1.Courses.Add(course1.Id);
+
+        // Сохранение в файл
+        DataHandler dataHandler = new DataHandler();
+        dataHandler.SaveToFile("data.txt", new List<Student> { student1, student2 }, new List<Teacher> { teacher1 }, new List<Course> { course1 });
+
+        // Загрузка из файла
+        dataHandler.LoadFromFile("data.txt", out var loadedStudents, out var loadedTeachers, out var loadedCourses);
+
+        Console.WriteLine("Данные загружены из файла:");
+
+        foreach (var course in loadedCourses)
         {
-            discountedProducts.Add(new DiscountedProduct(product, discount));
+            Console.WriteLine(course);
         }
 
-        foreach (var product in discountedProducts)
+        foreach (var student in loadedStudents)
         {
-            Console.WriteLine(product.GetInformation());
+            Console.WriteLine(student);
+        }
+
+        foreach (var teacher in loadedTeachers)
+        {
+            Console.WriteLine(teacher);
         }
     }
 }
